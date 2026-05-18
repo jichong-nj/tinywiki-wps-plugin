@@ -159,7 +159,7 @@ function OnGetEnabled(control) {
 function OnGetVisible(control) {
   const eleId = control.Id
   console.log(eleId)
-  return true
+  return eleId === 'btnAIChat'
 }
 
 function OnGetLabel(control) {

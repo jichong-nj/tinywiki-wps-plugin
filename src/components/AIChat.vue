@@ -51,6 +51,12 @@
                   <span class="source-score">相关性: {{ (doc.score * 100).toFixed(0) }}%</span>
                 </div>
               </div>
+              
+              <div v-if="msg.role === 'assistant'" class="insert-btn-container">
+                <button class="insert-btn" @click="insertToDocument(msg.content)">
+                  插入光标位置
+                </button>
+              </div>
             </div>
           </div>
           
@@ -555,6 +561,172 @@ watch(knowledgeBases, (newVal) => {
 watch(selectedKBId, (newVal) => {
   console.log('selectedKBId changed to:', newVal);
 });
+
+const insertToDocument = async (markdownContent) => {
+  try {
+    if (!window.Application || !window.Application.ActiveDocument) {
+      alert('请先打开一个WPS文档');
+      return;
+    }
+
+    const doc = window.Application.ActiveDocument;
+    const selection = window.Application.Selection;
+    
+    if (!selection) {
+      alert('无法获取文档光标位置');
+      return;
+    }
+
+    // 记录插入起始位置
+    const startPos = selection.Range.Start;
+    
+    // 解析Markdown并插入到文档
+    parseAndInsertMarkdown(markdownContent, selection);
+    
+    // 记录插入结束位置并选中
+    const endPos = selection.Range.Start;
+    const insertedRange = doc.Range(startPos, endPos);
+    insertedRange.Select();
+    
+    alert('内容已成功插入到文档！');
+  } catch (error) {
+    console.error('插入文档失败:', error);
+    alert('插入文档失败: ' + (error.message || '未知错误'));
+  }
+};
+
+const parseAndInsertMarkdown = (content, selection) => {
+  // 按行分割内容
+  const lines = content.split('\n');
+  
+  lines.forEach((line, index) => {
+    // 处理标题
+    if (line.startsWith('#')) {
+      const headingLevel = line.match(/^#+/)?.[0].length || 1;
+      const text = line.replace(/^#+\s*/, '');
+      
+      if (text) {
+        selection.TypeText(text);
+        // 设置标题样式（1-6级）
+        if (headingLevel <= 6) {
+          // WPS中标题样式的名称，如"标题 1", "标题 2"等
+          selection.ParagraphFormat.set_Style(`标题 ${headingLevel}`);
+        }
+        selection.TypeParagraph();
+      }
+    } 
+    // 处理粗体
+    else if (line.startsWith('**') && line.endsWith('**')) {
+      const text = line.slice(2, -2);
+      selection.Font.Bold = true;
+      selection.TypeText(text);
+      selection.Font.Bold = false;
+      selection.TypeParagraph();
+    }
+    // 处理斜体
+    else if (line.startsWith('*') && line.endsWith('*')) {
+      const text = line.slice(1, -1);
+      selection.Font.Italic = true;
+      selection.TypeText(text);
+      selection.Font.Italic = false;
+      selection.TypeParagraph();
+    }
+    // 处理代码块
+    else if (line.startsWith('```')) {
+      // 代码块开始或结束，这里我们简单处理
+      if (index === lines.length - 1 || !lines[index + 1]?.startsWith('```')) {
+        // 代码块内容
+      }
+    }
+    // 处理列表
+    else if (line.startsWith('- ') || line.startsWith('* ') || line.startsWith('+ ')) {
+      const text = line.slice(2);
+      // 插入项目符号
+      selection.Range.ListFormat.ApplyBulletDefault();
+      selection.TypeText(text);
+      selection.TypeParagraph();
+      // 清除列表格式
+      selection.Range.ListFormat.RemoveNumbers();
+    }
+    // 处理有序列表
+    else if (/^\d+\.\s/.test(line)) {
+      const text = line.replace(/^\d+\.\s/, '');
+      // 插入编号
+      selection.Range.ListFormat.ApplyNumberDefault();
+      selection.TypeText(text);
+      selection.TypeParagraph();
+      // 清除列表格式
+      selection.Range.ListFormat.RemoveNumbers();
+    }
+    // 处理普通段落
+    else if (line.trim()) {
+      // 处理行内粗体和斜体
+      let processedLine = line;
+      let currentPos = 0;
+      
+      // 简单的行内格式处理
+      while (processedLine) {
+        // 查找下一个格式标记
+        const boldMatch = processedLine.indexOf('**');
+        const italicMatch = processedLine.indexOf('*');
+        
+        if (boldMatch === -1 && italicMatch === -1) {
+          // 没有更多格式，直接插入剩余文本
+          selection.TypeText(processedLine);
+          break;
+        }
+        
+        // 确定先处理哪个
+        let matchIndex, matchLen, isBold;
+        if (boldMatch !== -1 && (italicMatch === -1 || boldMatch < italicMatch)) {
+          matchIndex = boldMatch;
+          matchLen = 2;
+          isBold = true;
+        } else {
+          matchIndex = italicMatch;
+          matchLen = 1;
+          isBold = false;
+        }
+        
+        // 插入格式前的文本
+        if (matchIndex > 0) {
+          selection.TypeText(processedLine.slice(0, matchIndex));
+        }
+        
+        // 找到结束标记
+        const endMatch = processedLine.indexOf(isBold ? '**' : '*', matchIndex + matchLen);
+        if (endMatch === -1) {
+          // 没有结束标记，直接插入剩余文本
+          selection.TypeText(processedLine.slice(matchIndex));
+          break;
+        }
+        
+        // 插入格式化文本
+        const formattedText = processedLine.slice(matchIndex + matchLen, endMatch);
+        if (isBold) {
+          selection.Font.Bold = true;
+        } else {
+          selection.Font.Italic = true;
+        }
+        selection.TypeText(formattedText);
+        if (isBold) {
+          selection.Font.Bold = false;
+        } else {
+          selection.Font.Italic = false;
+        }
+        
+        // 更新processedLine
+        processedLine = processedLine.slice(endMatch + matchLen);
+      }
+      
+      selection.TypeParagraph();
+    } 
+    // 处理空行
+    else {
+      selection.TypeParagraph();
+    }
+  });
+};
 </script>
 
 <style scoped>
@@ -788,6 +960,27 @@ watch(selectedKBId, (newVal) => {
 
 .source-score {
   color: #888;
+}
+
+.insert-btn-container {
+  margin-top: 8px;
+}
+
+.insert-btn {
+  padding: 6px 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: transform 0.2s, opacity 0.2s;
+}
+
+.insert-btn:hover {
+  transform: translateY(-1px);
+  opacity: 0.9;
 }
 
 .typing-indicator {
