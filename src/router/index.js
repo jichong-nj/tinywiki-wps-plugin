@@ -10,6 +10,11 @@ const router = createRouter({
       component: () => import('../components/Root.vue')
     },
     {
+      path: '/login',
+      name: '登录',
+      component: () => import('../components/Login.vue')
+    },
+    {
       path: '/dialog',
       name: '对话框',
       component: () => import('../components/Dialog.vue')
@@ -18,6 +23,11 @@ const router = createRouter({
       path: '/taskpane',
       name: '任务窗格',
       component: () => import('../components/TaskPane.vue')
+    },
+    {
+      path: '/aichat',
+      name: 'AI助手',
+      component: () => import('../views/AIChatView.vue')
     }
   ]
 })

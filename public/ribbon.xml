@@ -10,6 +10,9 @@
                     <button id="btnApiEvent" getLabel="ribbon.OnGetLabel" onAction="ribbon.OnAction" getEnabled="ribbon.OnGetEnabled"  getImage="ribbon.GetImage" getVisible="ribbon.OnGetVisible" size="large"/>
                     <button id="btnWebNotify" label="给业务系统发通知" onAction="ribbon.OnAction" enabled="true"  getImage="ribbon.GetImage" getVisible="ribbon.OnGetVisible" size="large"/>
 				</group>
+                <group id="aiAssistantGroup" label="AI助手">
+                    <button id="btnAIChat" label="AI助手" onAction="ribbon.OnAction" getEnabled="ribbon.OnGetEnabled" getImage="ribbon.GetImage" visible="true" size="large"/>
+                </group>
             </tab>
         </tabs>
     </ribbon>

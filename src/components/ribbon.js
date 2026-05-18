@@ -39,11 +39,9 @@ function OnAction(control) {
       let bFlag = window.Application.PluginStorage.getItem('EnableFlag')
       window.Application.PluginStorage.setItem('EnableFlag', !bFlag)
 
-      //通知wps刷新以下几个按饰的状态
       window.Application.ribbonUI.InvalidateControl('btnIsEnbable')
       window.Application.ribbonUI.InvalidateControl('btnShowDialog')
       window.Application.ribbonUI.InvalidateControl('btnShowTaskPane')
-      //window.Application.ribbonUI.Invalidate(); 这行代码打开则是刷新所有的按钮状态
       break
     }
     case 'btnShowDialog': {
@@ -98,6 +96,25 @@ function OnAction(control) {
         )
       }
       break
+    case 'btnAIChat':
+      {
+        const token = localStorage.getItem('accessToken');
+        const username = localStorage.getItem('currentUsername');
+        let route = '/login';
+        let title = 'AI助手';
+        if (token && username) {
+          route = '/aichat';
+          title = 'AI助手(' + username + ')';
+        }
+        window.Application.ShowDialog(
+          Util.GetUrlPath() + Util.GetRouterHash() + route,
+          title,
+          800 * window.devicePixelRatio,
+          600 * window.devicePixelRatio,
+          false
+        )
+      }
+      break
     default:
       break
   }
@@ -113,6 +130,8 @@ function GetImage(control) {
       return 'images/2.svg'
     case 'btnShowTaskPane':
       return 'images/3.svg'
+    case 'btnAIChat':
+      return 'images/newFromTemp.svg'
     default:
   }
   return 'images/newFromTemp.svg'
