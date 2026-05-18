@@ -18,7 +18,7 @@
           >
             <div class="session-title">{{ session.title }}</div>
             <div class="session-meta">
-              <span class="session-kb">{{ session.knowledge_base_name }}</span>
+              <span class="session-kb">{{ session.knowledge_base_name || '通用对话' }}</span>
               <span class="session-time">{{ formatTime(session.updated_at) }}</span>
             </div>
           </div>
@@ -29,36 +29,54 @@
         <div class="message-list">
           <div v-if="messages.length === 0" class="empty-chat">
             <div class="empty-icon">💬</div>
-            <p>选择知识库和 Agent 开始对话</p>
+            <p>开始对话吧</p>
           </div>
           
           <div v-for="msg in messages" :key="msg.id" class="message" :class="msg.role">
-            <div class="message-avatar">
-              <span v-if="msg.role === 'user'">🧑</span>
-              <span v-else>🤖</span>
-            </div>
-            <div class="message-content">
-              <div class="message-text" v-html="formatMarkdown(msg.content)"></div>
-              
-              <div v-if="msg.role === 'assistant' && msg.retrieved_documents" class="sources">
-                <div class="sources-title">参考文档：</div>
-                <div 
-                  v-for="(doc, idx) in msg.retrieved_documents" 
-                  :key="idx"
-                  class="source-item"
-                >
-                  <span class="source-title">{{ doc.title }}</span>
-                  <span class="source-score">相关性: {{ (doc.score * 100).toFixed(0) }}%</span>
-                </div>
-              </div>
-              
-              <div v-if="msg.role === 'assistant'" class="insert-btn-container">
-                <button class="insert-btn" @click="insertToDocument(msg.content)">
-                  插入光标位置
-                </button>
-              </div>
+        <div class="message-avatar">
+          <span v-if="msg.role === 'user'">🧑</span>
+          <span v-else>🤖</span>
+        </div>
+        <div class="message-content">
+          <div class="message-text" v-html="formatMarkdown(getMessageDisplayContent(msg))"></div>
+          
+          <!-- 如果是用户消息且包含文档内容，显示一个提示标签 -->
+          <div v-if="msg.role === 'user' && msg.hasDocumentContent" class="document-content-tag">
+            <span v-if="msg.isDocumentSelection" class="selection-tag">
+              📝 包含选中内容
+            </span>
+            <span v-else class="full-doc-tag">
+              📄 包含文档全文
+            </span>
+          </div>
+          
+          <div v-if="msg.role === 'assistant' && msg.retrieved_documents" class="sources">
+            <div class="sources-title">参考文档：</div>
+            <div 
+              v-for="(doc, idx) in msg.retrieved_documents" 
+              :key="idx"
+              class="source-item"
+            >
+              <span class="source-title">{{ doc.title }}</span>
+              <span class="source-score">相关性: {{ (doc.score * 100).toFixed(0) }}%</span>
             </div>
           </div>
+          
+          <!-- 文档操作列表 -->
+          <DocumentOperationList 
+            v-if="msg.role === 'assistant' && messageOperations.has(msg.id)"
+            :operations="messageOperations.get(msg.id)"
+            @execute="(ops) => handleExecuteOperations(msg.id, ops)"
+            @locate="handleLocateOperation"
+          />
+          
+          <div v-if="msg.role === 'assistant'" class="insert-btn-container">
+            <button class="insert-btn" @click="insertToDocument(msg.content)">
+              插入光标位置
+            </button>
+          </div>
+        </div>
+      </div>
           
           <div v-if="isLoading" class="message assistant">
             <div class="message-avatar">🤖</div>
@@ -75,6 +93,24 @@
     </div>
     
     <div class="chat-footer" v-if="!(showSessionList && chatMode === 'builtin')">
+      <!-- 文档内容选择提示 -->
+      <div class="document-content-info" v-if="hasActiveDocument">
+        <div class="document-content-controls">
+          <label class="attach-toggle">
+            <input type="checkbox" v-model="attachDocumentContent" />
+            <span>附加文档内容</span>
+          </label>
+          <span class="content-indicator">
+            <span v-if="hasDocumentSelection" class="selection-indicator">
+              📝 使用选中内容
+            </span>
+            <span v-else class="full-doc-indicator">
+              📄 使用文档全文
+            </span>
+          </span>
+        </div>
+      </div>
+      
       <div class="top-selectors">
         <div class="mode-selector">
           <label>
@@ -93,11 +129,18 @@
               <span v-if="selectedKBId" class="selected-kb-display">
                 {{ getKBName(selectedKBId) }}
               </span>
-              <span v-else class="placeholder">选择知识库</span>
+              <span v-else class="placeholder">通用对话</span>
               <span class="select-arrow"></span>
             </div>
             <transition name="dropdown">
               <div v-if="kbDropdownOpen" class="custom-select-dropdown">
+                <div 
+                  class="dropdown-item"
+                  :class="{ active: selectedKBId === '' }"
+                  @click="selectKB('')"
+                >
+                  通用对话
+                </div>
                 <div 
                   v-for="kb in knowledgeBases" 
                   :key="kb.id"
@@ -221,9 +264,13 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick, computed, onMounted } from 'vue';
+import { ref, watch, nextTick, computed, onMounted, onUnmounted } from 'vue';
 import axios from '../axios';
 import { marked } from 'marked';
+import DocumentOperationList from './DocumentOperationList.vue';
+import { DocumentOperationParser } from '../utils/documentOperationParser';
+import { DocumentOperationExecutor } from '../utils/documentOperationExecutor';
+import { DocumentContentHelper } from '../utils/documentContentHelper';
 
 const props = defineProps({
   modelValue: {
@@ -251,8 +298,14 @@ const showSessionList = ref(false);
 const sessions = ref([]);
 const currentSession = ref(null);
 const messages = ref([]);
+const messageOperations = ref(new Map()); // 存储每个消息的操作
 const inputMessage = ref('');
+const hasDocumentSelection = ref(false); // 是否有选中的文档内容
+const selectedDocumentContent = ref(null); // 选中的文档内容
+const selectionCheckInterval = ref(null); // 检查选择状态的定时器
 const isLoading = ref(false);
+const hasActiveDocument = ref(false); // 是否有活动的WPS文档
+const attachDocumentContent = ref(true); // 是否附加文档内容到问题
 const knowledgeBases = ref([]);
 const selectedKBId = ref(null);
 const chatMode = ref('builtin');
@@ -272,7 +325,8 @@ const selectAgent = (agent) => {
 
 const canSend = computed(() => {
   if (chatMode.value === 'builtin') {
-    return selectedKBId.value !== null && selectedKBId.value !== '';
+    // 支持无知识库（通用对话）和有知识库两种情况
+    return true;
   } else {
     return selectedAgentId.value !== null && selectedAgentId.value !== '' && (inputMessage.value.trim() !== '' || openclawAttachments.value.length > 0);
   }
@@ -290,14 +344,10 @@ const loadKnowledgeBases = async () => {
     
     knowledgeBases.value = response.data;
     console.log('Set knowledgeBases, length:', knowledgeBases.value.length);
-    console.log('First KB:', knowledgeBases.value[0]);
     
-    if (knowledgeBases.value.length > 0) {
-      selectedKBId.value = knowledgeBases.value[0].id;
-      console.log('Selected KB ID:', selectedKBId.value, 'Name:', knowledgeBases.value[0].name);
-    } else {
-      console.log('No knowledge bases available');
-    }
+    // 默认选择不使用知识库
+    selectedKBId.value = '';
+    console.log('默认选择通用对话');
   } catch (error) {
     console.error('Failed to load knowledge bases:', error);
     console.error('Error response:', error.response);
@@ -323,9 +373,8 @@ const loadAgents = async () => {
 
 const loadSessions = async () => {
   try {
-    const response = await axios.get('/documents/chat/sessions/', {
-      params: { knowledge_base_id: selectedKBId.value }
-    });
+    // 加载所有用户会话，不限制知识库
+    const response = await axios.get('/documents/chat/sessions/');
     sessions.value = response.data;
   } catch (error) {
     console.error('Failed to load sessions:', error);
@@ -333,16 +382,16 @@ const loadSessions = async () => {
 };
 
 const createNewSession = async () => {
-  if (!selectedKBId.value) {
-    alert('请先选择知识库');
-    return;
-  }
-  
   try {
-    const response = await axios.post('/documents/chat/sessions/', {
-      knowledge_base_id: selectedKBId.value,
+    const sessionData = {
       title: '新对话'
-    });
+    };
+    // 如果有选择知识库，则添加到请求数据中
+    if (selectedKBId.value) {
+      sessionData.knowledge_base_id = selectedKBId.value;
+    }
+    
+    const response = await axios.post('/documents/chat/sessions/', sessionData);
     currentSession.value = response.data;
     messages.value = [];
     showSessionList.value = false;
@@ -357,12 +406,17 @@ const loadSession = async (session) => {
   try {
     const response = await axios.get(`/documents/chat/sessions/${session.id}/`);
     messages.value = response.data.messages;
+    // 解析历史消息中的操作
+    response.data.messages.forEach(msg => parseMessageOperations(msg));
   } catch (error) {
     console.error('Failed to load session:', error);
   }
 };
 
 const getKBName = (id) => {
+  if (!id || id === '') {
+    return '通用对话';
+  }
   const kb = knowledgeBases.value.find(k => k.id === id);
   return kb ? kb.name : '';
 };
@@ -403,10 +457,26 @@ const sendMessage = async () => {
   }
   inputMessage.value = '';
   
+  // 获取文档内容
+  let documentContent = null;
+  if (attachDocumentContent.value) {
+    documentContent = DocumentContentHelper.getDocumentContentForAI();
+  }
+  
+  // 构建完整的用户消息内容
+  let fullUserContent = userContent;
+  if (documentContent && attachDocumentContent.value) {
+    const contentLabel = hasDocumentSelection.value ? '【选中内容】' : '【文档全文】';
+    fullUserContent = `${userContent}\n\n${contentLabel}:\n${documentContent}`;
+  }
+  
   const tempUserMsg = {
     id: Date.now(),
     role: 'user',
-    content: userContent,
+    content: fullUserContent,
+    originalUserContent: userContent, // 保存原始用户输入
+    hasDocumentContent: !!documentContent, // 标记是否包含文档内容
+    isDocumentSelection: hasDocumentSelection.value, // 标记是否是选中的内容
     created_at: new Date().toISOString()
   };
   messages.value.push(tempUserMsg);
@@ -414,9 +484,9 @@ const sendMessage = async () => {
   
   try {
     if (chatMode.value === 'builtin') {
-      await sendBuiltinMessage(userContent, tempUserMsg.id);
+      await sendBuiltinMessage(fullUserContent, tempUserMsg.id);
     } else {
-      await sendOpenClawMessage(userContent, tempUserMsg.id);
+      await sendOpenClawMessage(fullUserContent, tempUserMsg.id);
     }
     
     await scrollToBottom();
@@ -443,7 +513,11 @@ const sendBuiltinMessage = async (userContent, tempMsgId) => {
   
   messages.value = messages.value.filter(m => m.id !== tempMsgId);
   messages.value.push(response.data.user_message);
-  messages.value.push(response.data.assistant_message);
+  const assistantMsg = response.data.assistant_message;
+  messages.value.push(assistantMsg);
+  
+  // 解析消息中的操作
+  parseMessageOperations(assistantMsg);
   
   await loadSessions();
 };
@@ -475,12 +549,16 @@ const sendOpenClawMessage = async (userContent, tempMsgId) => {
     created_at: new Date().toISOString()
   });
   
-  messages.value.push({
+  const assistantMsg = {
     id: Date.now(),
     role: 'assistant',
     content: response.data.data?.response || response.data.data || '未获取到响应',
     created_at: new Date().toISOString()
-  });
+  };
+  messages.value.push(assistantMsg);
+  
+  // 解析消息中的操作
+  parseMessageOperations(assistantMsg);
 };
 
 const handleAttachmentChange = (event) => {
@@ -525,6 +603,49 @@ const scrollToBottom = async () => {
   }
 };
 
+// 解析消息中的操作
+const parseMessageOperations = (message) => {
+  if (message.role === 'assistant' && message.content) {
+    const operations = DocumentOperationParser.extractOperations(message.content);
+    if (operations.length > 0) {
+      messageOperations.value.set(message.id, operations);
+    }
+  }
+};
+
+// 获取消息的纯文本（移除操作代码块）
+const getMessageDisplayContent = (message) => {
+  if (message.role === 'user' && message.originalUserContent) {
+    // 如果是用户消息且有原始内容，则显示原始内容
+    return message.originalUserContent;
+  }
+  if (message.role === 'assistant' && message.content) {
+    return DocumentOperationParser.stripOperations(message.content);
+  }
+  return message.content;
+};
+
+// 执行操作
+const handleExecuteOperations = async (messageId, operations) => {
+  if (!window.Application?.ActiveDocument) {
+    alert('请先打开一个 WPS 文档');
+    return;
+  }
+  
+  const result = await DocumentOperationExecutor.executeOperations(operations);
+  alert(`操作完成：成功 ${result.success} 个，失败 ${result.failed} 个`);
+};
+
+// 定位操作
+const handleLocateOperation = async (operation) => {
+  if (!window.Application?.ActiveDocument) {
+    alert('请先打开一个 WPS 文档');
+    return;
+  }
+  
+  await DocumentOperationExecutor.locatePosition(operation.position);
+};
+
 const checkAuth = () => {
   const token = localStorage.getItem('accessToken');
   if (!token) {
@@ -532,6 +653,27 @@ const checkAuth = () => {
     return false;
   }
   return true;
+};
+
+// 检查文档选择状态
+const checkDocumentSelection = () => {
+  try {
+    // 检查是否有活动文档
+    hasActiveDocument.value = !!(window.Application?.ActiveDocument);
+    
+    if (hasActiveDocument.value) {
+      const selectionInfo = DocumentContentHelper.getSelectionInfo();
+      hasDocumentSelection.value = selectionInfo.hasSelection;
+      selectedDocumentContent.value = selectionInfo.selectedText;
+    } else {
+      hasDocumentSelection.value = false;
+      selectedDocumentContent.value = null;
+    }
+  } catch (error) {
+    console.error('检查选择状态失败:', error);
+    hasActiveDocument.value = false;
+    hasDocumentSelection.value = false;
+  }
 };
 
 onMounted(async () => {
@@ -545,6 +687,18 @@ onMounted(async () => {
   console.log('All data loaded in mounted');
   console.log('chatMode:', chatMode.value);
   console.log('selectedKBId:', selectedKBId.value);
+  
+  // 启动选择状态检查定时器
+  checkDocumentSelection(); // 立即检查一次
+  selectionCheckInterval.value = setInterval(checkDocumentSelection, 500); // 每500ms检查一次
+});
+
+onUnmounted(() => {
+  // 清除定时器
+  if (selectionCheckInterval.value) {
+    clearInterval(selectionCheckInterval.value);
+    selectionCheckInterval.value = null;
+  }
 });
 
 watch(chatMode, async (newMode) => {
@@ -730,6 +884,75 @@ const parseAndInsertMarkdown = (content, selection) => {
 </script>
 
 <style scoped>
+.document-content-info {
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #f0f2ff 0%, #e8f0fe 100%);
+  border-radius: 6px;
+  margin-bottom: 10px;
+  font-size: 12px;
+}
+
+.document-content-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.attach-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.attach-toggle input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.content-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #667eea;
+  font-weight: 500;
+}
+
+.selection-indicator {
+  color: #2e7d32;
+}
+
+.full-doc-indicator {
+  color: #1565c0;
+}
+
+.document-content-tag {
+  margin-top: 6px;
+}
+
+.selection-tag,
+.full-doc-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  background: #f0f2ff;
+  color: #667eea;
+}
+
+.selection-tag {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.full-doc-tag {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
 .ai-chat-panel {
   width: 100%;
   height: 100%;
