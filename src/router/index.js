@@ -28,6 +28,11 @@ const router = createRouter({
       path: '/aichat',
       name: 'AI助手',
       component: () => import('../views/AIChatView.vue')
+    },
+    {
+      path: '/aiproofread',
+      name: 'AI勘误',
+      component: () => import('../views/AIProofreadView.vue')
     }
   ]
 })

@@ -115,6 +115,25 @@ function OnAction(control) {
         )
       }
       break
+    case 'btnAIProofread':
+      {
+        const token = localStorage.getItem('accessToken');
+        const username = localStorage.getItem('currentUsername');
+        let route = '/login';
+        let title = 'AI勘误';
+        if (token && username) {
+          route = '/aiproofread';
+          title = 'AI勘误';
+        }
+        window.Application.ShowDialog(
+          Util.GetUrlPath() + Util.GetRouterHash() + route,
+          title,
+          800 * window.devicePixelRatio,
+          600 * window.devicePixelRatio,
+          false
+        )
+      }
+      break
     default:
       break
   }
@@ -159,7 +178,7 @@ function OnGetEnabled(control) {
 function OnGetVisible(control) {
   const eleId = control.Id
   console.log(eleId)
-  return eleId === 'btnAIChat'
+  return eleId === 'btnAIChat' || eleId === 'btnAIProofread'
 }
 
 function OnGetLabel(control) {

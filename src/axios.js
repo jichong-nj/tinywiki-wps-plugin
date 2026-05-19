@@ -2,7 +2,7 @@ import axios from 'axios'
 
 const instance = axios.create({
   baseURL: '/api',
-  timeout: 120000,
+  timeout: 240000,
   withCredentials: true,
 })
 

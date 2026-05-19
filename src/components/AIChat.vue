@@ -507,9 +507,17 @@ const sendBuiltinMessage = async (userContent, tempMsgId) => {
     }
   }
   
+  console.log('========== 发送消息完整请求（不截断）==========');
+  console.log(userContent);
+  console.log('========== 完整请求结束 ==========');
+  
   const response = await axios.post(`/documents/chat/sessions/${currentSession.value.id}/send/`, {
     content: userContent
   });
+  
+  console.log('========== API完整响应（不截断）==========');
+  console.log(JSON.stringify(response.data, null, 2));
+  console.log('========== 完整响应结束 ==========');
   
   messages.value = messages.value.filter(m => m.id !== tempMsgId);
   messages.value.push(response.data.user_message);
