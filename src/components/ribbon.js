@@ -1,7 +1,7 @@
 import Util from './js/util.js'
 import SystemDemo from './js/systemdemo.js'
 
-//这个函数在整个wps加载项中是第一个执行的
+//这个函数在整个TinyWiki插件中是第一个执行的
 function OnAddinLoad(ribbonUI) {
   if (typeof window.Application.ribbonUI != 'object') {
     window.Application.ribbonUI = ribbonUI
@@ -88,7 +88,7 @@ function OnAction(control) {
         let timeStr =
           currentTime.getHours() + ':' + currentTime.getMinutes() + ':' + currentTime.getSeconds()
         window.Application.OAAssist.WebNotify(
-          '这行内容由wps加载项主动送达给业务系统，可以任意自定义, 比如时间值:' +
+          '这行内容由TinyWiki插件主动送达给业务系统，可以任意自定义, 比如时间值:' +
             timeStr +
             '，次数：' +
             ++WebNotifycount,
