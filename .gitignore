@@ -1,3 +1,4 @@
 node_modules
 wps-addon-build/
 dist/
+wps-addon-publish/
