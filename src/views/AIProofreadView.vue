@@ -454,10 +454,41 @@ const applyComment = async (result) => {
     targetRange.Find.Wrap = 1;
     
     if (targetRange.Find.Execute()) {
-      const comment = doc.Comments.Add(targetRange);
-      comment.Range.Text = `【${getTypeLabel(result.type)}】${result.suggestion}`;
-      result.applied = true;
-      showToast('批注添加成功！', 'success');
+      let commentAdded = false;
+      
+      // 先选择文本（与定位功能一致）
+      targetRange.Select();
+      
+      // 尝试使用选择范围添加批注
+      try {
+        const selection = window.Application.Selection;
+        const comment = doc.Comments.Add(selection.Range);
+        comment.Range.Text = `【${getTypeLabel(result.type)}】${result.suggestion}`;
+        commentAdded = true;
+      } catch (e) {
+        console.log('使用选择范围添加批注失败，尝试直接使用找到的范围:', e);
+        
+        // 如果选择范围方法失败，尝试直接使用找到的范围
+        try {
+          const comment = doc.Comments.Add(targetRange);
+          comment.Range.Text = `【${getTypeLabel(result.type)}】${result.suggestion}`;
+          commentAdded = true;
+        } catch (e2) {
+          console.log('直接使用范围也失败:', e2);
+        }
+      }
+      
+      if (commentAdded) {
+        result.applied = true;
+        showToast('批注添加成功！', 'success');
+      } else {
+        // 所有方法都失败，使用备用方案：在文档末尾添加批注
+        const endRange = doc.Range(doc.Content.End - 1, doc.Content.End - 1);
+        const comment = doc.Comments.Add(endRange);
+        comment.Range.Text = `【${getTypeLabel(result.type)}】${result.suggestion}\n原文: ${result.originalText}\n段落: 第${result.paragraph}段\n注: 原位置可能在表格中，无法直接添加批注`;
+        result.applied = true;
+        showToast('无法在原位置添加批注，已在文档末尾添加', 'warning');
+      }
     } else {
       const endRange = doc.Range(doc.Content.End - 1, doc.Content.End - 1);
       const comment = doc.Comments.Add(endRange);
