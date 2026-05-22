@@ -248,6 +248,13 @@
           ref="textareaRef"
         ></textarea>
         <button 
+          class="clear-session-btn" 
+          @click="clearSession"
+          title="清除当前会话"
+        >
+          🗑️
+        </button>
+        <button 
           class="send-btn" 
           @click="sendMessage"
           :disabled="isLoading || !canSend"
@@ -576,6 +583,26 @@ const handleAttachmentChange = (event) => {
 
 const removeAttachment = (index) => {
   openclawAttachments.value.splice(index, 1);
+};
+
+const clearSession = () => {
+  if (!confirm('确定要清除当前会话吗？这将清空所有对话记录。')) {
+    return;
+  }
+  
+  // 清除消息
+  messages.value = [];
+  currentSession.value = null;
+  messageOperations.value.clear();
+  
+  // 清除OpenClaw模式的附件
+  openclawAttachments.value = [];
+  if (attachmentInputRef.value) {
+    attachmentInputRef.value.value = '';
+  }
+  
+  // 重新加载会话列表
+  loadSessions();
 };
 
 const formatFileSize = (bytes) => {
@@ -1525,6 +1552,27 @@ const parseAndInsertMarkdown = (content, selection) => {
 
 .attachment-label input[type="file"] {
   display: none;
+}
+
+.clear-session-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px dashed #667eea;
+  border-radius: 8px;
+  color: #667eea;
+  font-size: 20px;
+  cursor: pointer;
+  transition: background 0.2s;
+  background: transparent;
+  padding: 0;
+}
+
+.clear-session-btn:hover {
+  background: #f0f2ff;
 }
 
 .input-area textarea {
