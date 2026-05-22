@@ -12,10 +12,25 @@ function GetUrlPath() {
     return path.substring(0, path.lastIndexOf('/'));
   }
 
-  // 在非本地网页的情况下获取根路径
-  const { protocol, hostname, port } = window.location;
+  // 在非本地网页的情况下获取完整路径（包含路径部分）
+  const { protocol, hostname, port, pathname } = window.location;
   const portPart = port ? `:${port}` : '';
-  return `${protocol}//${hostname}${portPart}`;
+  
+  // 获取路径部分，但去掉 index.html 或文件名
+  let basePath = pathname;
+  if (basePath.includes('/index.html')) {
+    basePath = basePath.replace('/index.html', '');
+  } else if (basePath.includes('.')) {
+    // 如果路径包含文件扩展名，去掉文件名
+    basePath = basePath.substring(0, basePath.lastIndexOf('/'));
+  }
+  
+  // 确保路径以 / 结尾
+  if (basePath && !basePath.endsWith('/')) {
+    basePath = basePath + '/';
+  }
+  
+  return `${protocol}//${hostname}${portPart}${basePath}`;
 }
 
 function GetRouterHash() {
