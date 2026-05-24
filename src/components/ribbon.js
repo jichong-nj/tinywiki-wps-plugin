@@ -58,7 +58,9 @@ function OnAction(control) {
       {
         let tsId = window.Application.PluginStorage.getItem('taskpane_id')
         if (!tsId) {
-          let tskpane = window.Application.CreateTaskPane(Util.GetUrlPath() + Util.GetRouterHash() + '/taskpane')
+          let tskpane = window.Application.CreateTaskPane(
+            Util.GetUrlPath() + Util.GetRouterHash() + '/taskpane'
+          )
           let id = tskpane.ID
           window.Application.PluginStorage.setItem('taskpane_id', id)
           tskpane.Visible = true
@@ -74,9 +76,15 @@ function OnAction(control) {
         let bRegister = bFlag ? false : true
         window.Application.PluginStorage.setItem('ApiEventFlag', bRegister)
         if (bRegister) {
-          window.Application.ApiEvent.AddApiEventListener('DocumentNew', 'ribbon.OnNewDocumentApiEvent')
+          window.Application.ApiEvent.AddApiEventListener(
+            'DocumentNew',
+            'ribbon.OnNewDocumentApiEvent'
+          )
         } else {
-          window.Application.ApiEvent.RemoveApiEventListener('DocumentNew', 'ribbon.OnNewDocumentApiEvent')
+          window.Application.ApiEvent.RemoveApiEventListener(
+            'DocumentNew',
+            'ribbon.OnNewDocumentApiEvent'
+          )
         }
 
         window.Application.ribbonUI.InvalidateControl('btnApiEvent')
@@ -98,13 +106,13 @@ function OnAction(control) {
       break
     case 'btnAIChat':
       {
-        const token = localStorage.getItem('accessToken');
-        const username = localStorage.getItem('currentUsername');
-        let route = '/login';
-        let title = 'AI助手';
+        const token = localStorage.getItem('accessToken')
+        const username = localStorage.getItem('currentUsername')
+        let route = '/login'
+        let title = 'AI助手'
         if (token && username) {
-          route = '/aichat';
-          title = 'AI助手(' + username + ')';
+          route = '/aichat'
+          title = 'AI助手(' + username + ')'
         }
         window.Application.ShowDialog(
           Util.GetUrlPath() + Util.GetRouterHash() + route,
@@ -117,13 +125,13 @@ function OnAction(control) {
       break
     case 'btnAIProofread':
       {
-        const token = localStorage.getItem('accessToken');
-        const username = localStorage.getItem('currentUsername');
-        let route = '/login';
-        let title = 'AI勘误';
+        const token = localStorage.getItem('accessToken')
+        const username = localStorage.getItem('currentUsername')
+        let route = '/login'
+        let title = 'AI勘误'
         if (token && username) {
-          route = '/aiproofread';
-          title = 'AI勘误';
+          route = '/aiproofread'
+          title = 'AI勘误'
         }
         window.Application.ShowDialog(
           Util.GetUrlPath() + Util.GetRouterHash() + route,

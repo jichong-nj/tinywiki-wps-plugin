@@ -2,20 +2,10 @@
   <div class="document-operation-list">
     <!-- 批量操作栏 -->
     <div class="batch-actions" v-if="operations.length > 0">
-      <button 
-        class="batch-btn" 
-        @click="toggleAll(true)"
-      >
-        全选
-      </button>
-      <button 
-        class="batch-btn" 
-        @click="toggleAll(false)"
-      >
-        全不选
-      </button>
+      <button class="batch-btn" @click="toggleAll(true)">全选</button>
+      <button class="batch-btn" @click="toggleAll(false)">全不选</button>
     </div>
-    
+
     <!-- 操作列表 -->
     <div class="operation-items">
       <DocumentOperationItem
@@ -27,14 +17,10 @@
         @update:confirmed="(checked) => updateOperationConfirmed(op, checked)"
       />
     </div>
-    
+
     <!-- 执行按钮 -->
     <div class="execute-actions" v-if="operations.length > 0">
-      <button 
-        class="execute-btn"
-        :disabled="!hasConfirmedOperations"
-        @click="executeOperations"
-      >
+      <button class="execute-btn" :disabled="!hasConfirmedOperations" @click="executeOperations">
         执行已确认的操作 ({{ confirmedCount }})
       </button>
     </div>
@@ -42,48 +28,44 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
-import DocumentOperationItem from './DocumentOperationItem.vue';
+import { computed } from 'vue'
+import DocumentOperationItem from './DocumentOperationItem.vue'
 
 const props = defineProps({
   operations: {
     type: Array,
     required: true
   }
-});
+})
 
-const emit = defineEmits(['execute', 'locate']);
+const emit = defineEmits(['execute', 'locate'])
 
-const hasConfirmedOperations = computed(() => 
-  props.operations.some(op => op.confirmed)
-);
+const hasConfirmedOperations = computed(() => props.operations.some((op) => op.confirmed))
 
-const confirmedCount = computed(() => 
-  props.operations.filter(op => op.confirmed).length
-);
+const confirmedCount = computed(() => props.operations.filter((op) => op.confirmed).length)
 
 const toggleAll = (confirmed) => {
-  props.operations.forEach(op => {
-    op.confirmed = confirmed;
-  });
-};
+  props.operations.forEach((op) => {
+    op.confirmed = confirmed
+  })
+}
 
 const updateOperationConfirmed = (operation, confirmed) => {
-  operation.confirmed = confirmed;
-};
+  operation.confirmed = confirmed
+}
 
 const onConfirm = () => {
   // 操作已通过updateOperationConfirmed更新
-};
+}
 
 const onLocate = (operation) => {
-  emit('locate', operation);
-};
+  emit('locate', operation)
+}
 
 const executeOperations = () => {
-  const confirmedOps = props.operations.filter(op => op.confirmed);
-  emit('execute', confirmedOps);
-};
+  const confirmedOps = props.operations.filter((op) => op.confirmed)
+  emit('execute', confirmedOps)
+}
 </script>
 
 <style scoped>
@@ -124,7 +106,9 @@ const executeOperations = () => {
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
-  transition: transform 0.2s, opacity 0.2s;
+  transition:
+    transform 0.2s,
+    opacity 0.2s;
 }
 
 .execute-btn:hover:not(:disabled) {

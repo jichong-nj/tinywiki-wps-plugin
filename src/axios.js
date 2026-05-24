@@ -3,11 +3,11 @@ import axios from 'axios'
 const instance = axios.create({
   baseURL: '/api',
   timeout: 240000,
-  withCredentials: true,
+  withCredentials: true
 })
 
 instance.interceptors.request.use(
-  config => {
+  (config) => {
     console.log('Making request to:', config.url)
     if (!(config.data instanceof FormData)) {
       config.headers = config.headers || {}
@@ -23,12 +23,12 @@ instance.interceptors.request.use(
     }
     return config
   },
-  error => Promise.reject(error)
+  (error) => Promise.reject(error)
 )
 
 instance.interceptors.response.use(
-  response => response,
-  error => {
+  (response) => response,
+  (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('accessToken')
       localStorage.removeItem('refreshToken')

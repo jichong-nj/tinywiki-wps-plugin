@@ -9,26 +9,26 @@ export class DocumentContentHelper {
   static getSelectedText() {
     try {
       if (!window.Application?.ActiveDocument) {
-        return null;
+        return null
       }
-      
-      const selection = window.Application.Selection;
+
+      const selection = window.Application.Selection
       if (!selection) {
-        return null;
+        return null
       }
-      
+
       // 获取选中的文本
-      const selectedText = selection.Range.Text;
-      
+      const selectedText = selection.Range.Text
+
       // 如果选中的文本为空或只有空格，则返回null
       if (!selectedText || selectedText.trim() === '') {
-        return null;
+        return null
       }
-      
-      return selectedText;
+
+      return selectedText
     } catch (error) {
-      console.error('获取选中内容失败:', error);
-      return null;
+      console.error('获取选中内容失败:', error)
+      return null
     }
   }
 
@@ -39,17 +39,17 @@ export class DocumentContentHelper {
   static getFullDocumentText() {
     try {
       if (!window.Application?.ActiveDocument) {
-        return null;
+        return null
       }
-      
-      const doc = window.Application.ActiveDocument;
+
+      const doc = window.Application.ActiveDocument
       // 获取文档的全部内容
-      const fullText = doc.Content.Text;
-      
-      return fullText;
+      const fullText = doc.Content.Text
+
+      return fullText
     } catch (error) {
-      console.error('获取文档全文失败:', error);
-      return null;
+      console.error('获取文档全文失败:', error)
+      return null
     }
   }
 
@@ -61,14 +61,14 @@ export class DocumentContentHelper {
    */
   static getDocumentContentForAI() {
     // 首先尝试获取选中的文本
-    const selectedText = this.getSelectedText();
-    
+    const selectedText = this.getSelectedText()
+
     if (selectedText) {
-      return selectedText;
+      return selectedText
     }
-    
+
     // 如果没有选中，则返回全文
-    return this.getFullDocumentText();
+    return this.getFullDocumentText()
   }
 
   /**
@@ -76,8 +76,8 @@ export class DocumentContentHelper {
    * @returns {boolean} 是否有选中文本
    */
   static hasSelection() {
-    const selectedText = this.getSelectedText();
-    return selectedText !== null;
+    const selectedText = this.getSelectedText()
+    return selectedText !== null
   }
 
   /**
@@ -85,15 +85,15 @@ export class DocumentContentHelper {
    * @returns {object} 包含选择状态和内容的对象
    */
   static getSelectionInfo() {
-    const hasSelection = this.hasSelection();
-    const selectedText = hasSelection ? this.getSelectedText() : null;
-    const fullText = this.getFullDocumentText();
-    
+    const hasSelection = this.hasSelection()
+    const selectedText = hasSelection ? this.getSelectedText() : null
+    const fullText = this.getFullDocumentText()
+
     return {
       hasSelection,
       selectedText,
       fullText,
       contentToUse: hasSelection ? selectedText : fullText
-    };
+    }
   }
 }

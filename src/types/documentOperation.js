@@ -22,4 +22,4 @@
  * @property {'pending'|'executing'|'success'|'error'} status - 执行状态
  */
 
-export {};
+export {}

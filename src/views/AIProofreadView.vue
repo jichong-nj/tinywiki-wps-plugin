@@ -7,7 +7,10 @@
         :key="index"
         class="toast"
         :class="toast.type"
-        :style="{ opacity: toast.visible ? 1 : 0, transform: toast.visible ? 'translateY(0)' : 'translateY(-20px)' }"
+        :style="{
+          opacity: toast.visible ? 1 : 0,
+          transform: toast.visible ? 'translateY(0)' : 'translateY(-20px)'
+        }"
       >
         <span class="toast-icon">{{ getToastIcon(toast.type) }}</span>
         <span class="toast-message">{{ toast.message }}</span>
@@ -64,11 +67,7 @@
           <span class="progress-text">{{ progressText }}</span>
         </div>
 
-        <button 
-          class="analyze-btn" 
-          @click="startAnalysis" 
-          :disabled="isLoading"
-        >
+        <button class="analyze-btn" @click="startAnalysis" :disabled="isLoading">
           {{ isLoading ? '分析中...' : '开始分析' }}
         </button>
       </div>
@@ -84,8 +83,8 @@
         </div>
 
         <div class="result-list">
-          <div 
-            v-for="(result, index) in analysisResults" 
+          <div
+            v-for="(result, index) in analysisResults"
             :key="index"
             class="result-item"
             :class="{ applied: result.applied }"
@@ -93,27 +92,12 @@
             <div class="result-type" :class="result.type">
               {{ getTypeLabel(result.type) }}
             </div>
-            <div class="result-location">
-              <strong>位置：</strong>第 {{ result.paragraph }} 段
-            </div>
-            <div class="result-original">
-              <strong>原文：</strong>{{ result.originalText }}
-            </div>
-            <div class="result-suggestion">
-              <strong>建议：</strong>{{ result.suggestion }}
-            </div>
+            <div class="result-location"><strong>位置：</strong>第 {{ result.paragraph }} 段</div>
+            <div class="result-original"><strong>原文：</strong>{{ result.originalText }}</div>
+            <div class="result-suggestion"><strong>建议：</strong>{{ result.suggestion }}</div>
             <div class="result-actions">
-              <button 
-                class="locate-btn" 
-                @click="locateText(result)"
-              >
-                📍 定位
-              </button>
-              <button 
-                v-if="!result.applied"
-                class="apply-btn" 
-                @click="applyComment(result)"
-              >
+              <button class="locate-btn" @click="locateText(result)">📍 定位</button>
+              <button v-if="!result.applied" class="apply-btn" @click="applyComment(result)">
                 ✓ 添加批注
               </button>
               <span v-else class="applied-label">✓ 已添加</span>
@@ -131,40 +115,40 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
-import axios from '../axios';
+import { ref } from 'vue'
+import axios from '../axios'
 
-const isLoading = ref(false);
-const isApplying = ref(false);
-const hasAnalyzed = ref(false);
-const checkSpelling = ref(true);
-const checkGrammar = ref(true);
-const checkFormat = ref(true);
-const checkContent = ref(true);
-const analysisResults = ref([]);
-const documentStructure = ref(null);
-const documentInfo = ref(null);
-const progress = ref(0);
-const progressText = ref('');
-const toasts = ref([]);
+const isLoading = ref(false)
+const isApplying = ref(false)
+const hasAnalyzed = ref(false)
+const checkSpelling = ref(true)
+const checkGrammar = ref(true)
+const checkFormat = ref(true)
+const checkContent = ref(true)
+const analysisResults = ref([])
+const documentStructure = ref(null)
+const documentInfo = ref(null)
+const progress = ref(0)
+const progressText = ref('')
+const toasts = ref([])
 
-const MAX_CHARS_PER_CHUNK = 1000;
+const MAX_CHARS_PER_CHUNK = 1000
 
 const showToast = (message, type = 'info') => {
-  const id = Date.now();
-  const toast = { id, message, type, visible: true };
-  toasts.value.push(toast);
-  
+  const id = Date.now()
+  const toast = { id, message, type, visible: true }
+  toasts.value.push(toast)
+
   setTimeout(() => {
-    toast.visible = false;
+    toast.visible = false
     setTimeout(() => {
-      const index = toasts.value.findIndex(t => t.id === id);
+      const index = toasts.value.findIndex((t) => t.id === id)
       if (index > -1) {
-        toasts.value.splice(index, 1);
+        toasts.value.splice(index, 1)
       }
-    }, 300);
-  }, 3000);
-};
+    }, 300)
+  }, 3000)
+}
 
 const getToastIcon = (type) => {
   const icons = {
@@ -172,120 +156,125 @@ const getToastIcon = (type) => {
     error: '✕',
     warning: '⚠',
     info: 'ℹ'
-  };
-  return icons[type] || 'ℹ';
-};
+  }
+  return icons[type] || 'ℹ'
+}
 
 const splitIntoChunks = (paragraphs) => {
-  const chunks = [];
-  let currentChunk = { paragraphs: [], text: '' };
-  
+  const chunks = []
+  let currentChunk = { paragraphs: [], text: '' }
+
   for (let i = 0; i < paragraphs.length; i++) {
-    const para = paragraphs[i];
-    const paragraphText = `[段落${para.index}]\n${para.text}\n\n`;
-    
-    if (currentChunk.text.length + paragraphText.length > MAX_CHARS_PER_CHUNK && currentChunk.paragraphs.length > 0) {
-      chunks.push({ ...currentChunk });
-      
-      const lastPara = currentChunk.paragraphs[currentChunk.paragraphs.length - 1];
+    const para = paragraphs[i]
+    const paragraphText = `[段落${para.index}]\n${para.text}\n\n`
+
+    if (
+      currentChunk.text.length + paragraphText.length > MAX_CHARS_PER_CHUNK &&
+      currentChunk.paragraphs.length > 0
+    ) {
+      chunks.push({ ...currentChunk })
+
+      const lastPara = currentChunk.paragraphs[currentChunk.paragraphs.length - 1]
       currentChunk = {
         paragraphs: [lastPara],
         text: `[段落${lastPara.index}]\n${lastPara.text}\n\n`
-      };
+      }
     }
-    
-    currentChunk.paragraphs.push(para);
-    currentChunk.text += paragraphText;
+
+    currentChunk.paragraphs.push(para)
+    currentChunk.text += paragraphText
   }
-  
+
   if (currentChunk.paragraphs.length > 0) {
-    chunks.push(currentChunk);
+    chunks.push(currentChunk)
   }
-  
-  return chunks;
-};
+
+  return chunks
+}
 
 const getDocumentStructure = () => {
   try {
-    const doc = window.Application.ActiveDocument;
+    const doc = window.Application.ActiveDocument
     if (!doc) {
-      showToast('请先打开一个 WPS 文档', 'warning');
-      return null;
+      showToast('请先打开一个 WPS 文档', 'warning')
+      return null
     }
-    
-    const fullText = doc.Content.Text;
+
+    const fullText = doc.Content.Text
     if (!fullText || fullText.trim() === '') {
-      showToast('文档内容为空', 'warning');
-      return null;
+      showToast('文档内容为空', 'warning')
+      return null
     }
-    
+
     // 使用 WPS 官方的 Paragraphs 对象获取段落
-    const wpsParagraphs = doc.Paragraphs;
-    const paragraphs = [];
-    
+    const wpsParagraphs = doc.Paragraphs
+    const paragraphs = []
+
     for (let i = 1; i <= wpsParagraphs.Count; i++) {
-      const para = wpsParagraphs.Item(i);
-      const text = para.Range.Text;
-      
+      const para = wpsParagraphs.Item(i)
+      const text = para.Range.Text
+
       // 只保留有内容的段落（排除纯换行或空段落）
       if (text && text.trim() !== '') {
         paragraphs.push({
           index: i,
           text: text,
           originalText: text.trim()
-        });
+        })
       }
     }
-    
-    console.log('WPS段落总数:', wpsParagraphs.Count, '有效段落数:', paragraphs.length);
-    
+
+    console.log('WPS段落总数:', wpsParagraphs.Count, '有效段落数:', paragraphs.length)
+
     return {
       paragraphs: paragraphs,
       fullText: fullText,
       charCount: fullText.length,
       paragraphCount: paragraphs.length
-    };
+    }
   } catch (error) {
-    console.error('获取文档结构失败:', error);
-    showToast('获取文档失败: ' + (error.message || '未知错误'), 'error');
-    return null;
+    console.error('获取文档结构失败:', error)
+    showToast('获取文档失败: ' + (error.message || '未知错误'), 'error')
+    return null
   }
-};
+}
 
 const startAnalysis = async () => {
   if (!window.Application?.ActiveDocument) {
-    showToast('请先打开一个 WPS 文档', 'warning');
-    return;
+    showToast('请先打开一个 WPS 文档', 'warning')
+    return
   }
 
-  isLoading.value = true;
-  hasAnalyzed.value = false;
-  analysisResults.value = [];
-  progress.value = 0;
-  progressText.value = '准备中...';
-  
+  isLoading.value = true
+  hasAnalyzed.value = false
+  analysisResults.value = []
+  progress.value = 0
+  progressText.value = '准备中...'
+
   try {
-    documentStructure.value = getDocumentStructure();
-    
+    documentStructure.value = getDocumentStructure()
+
     if (!documentStructure.value) {
-      isLoading.value = false;
-      return;
+      isLoading.value = false
+      return
     }
-    
-    const chunks = splitIntoChunks(documentStructure.value.paragraphs);
+
+    const chunks = splitIntoChunks(documentStructure.value.paragraphs)
     documentInfo.value = {
       charCount: documentStructure.value.charCount,
       paragraphCount: documentStructure.value.paragraphCount,
       chunkCount: chunks.length
-    };
-    
-    console.log(`文档长度: ${documentStructure.value.charCount} 字符, 段落数: ${documentStructure.value.paragraphCount}, 分块数: ${chunks.length}`);
-    
-    const checks = [];
-    if (checkSpelling.value) checks.push('拼写错误');
-    if (checkGrammar.value) checks.push('语法问题');
-    if (checkFormat.value) checks.push('格式问题');
-    if (checkContent.value) checks.push('内容优化建议');
+    }
+
+    console.log(
+      `文档长度: ${documentStructure.value.charCount} 字符, 段落数: ${documentStructure.value.paragraphCount}, 分块数: ${chunks.length}`
+    )
+
+    const checks = []
+    if (checkSpelling.value) checks.push('拼写错误')
+    if (checkGrammar.value) checks.push('语法问题')
+    if (checkFormat.value) checks.push('格式问题')
+    if (checkContent.value) checks.push('内容优化建议')
 
     const baseSystemPrompt = `你是一个专业的文档勘误和校对助手。请仔细分析下面的文档内容，找出其中的${checks.join('、')}。
 
@@ -319,7 +308,7 @@ const startAnalysis = async () => {
     "endIndex": 8,
     "context": "这是一个错别子示例"
   }
-]`;
+]`
 
     // 每个批次创建一个会话，而不是每个块一个会话
     const currentTime = new Date().toLocaleString('zh-CN', {
@@ -328,205 +317,212 @@ const startAnalysis = async () => {
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit'
-    });
-    
+    })
+
     const response = await axios.post('/documents/chat/sessions/', {
       title: `AI勘误会话 - ${currentTime}`
-    });
-    const sessionId = response.data.id;
-    
-    console.log(`批次会话 ${sessionId} 创建成功，准备处理 ${chunks.length} 个块`);
-    
+    })
+    const sessionId = response.data.id
+
+    console.log(`批次会话 ${sessionId} 创建成功，准备处理 ${chunks.length} 个块`)
+
     for (let i = 0; i < chunks.length; i++) {
-      const chunk = chunks[i];
-      progress.value = Math.round((i / chunks.length) * 80);
-      progressText.value = `正在分析第 ${i + 1}/${chunks.length} 块...`;
-      
-      console.log(`处理第 ${i + 1}/${chunks.length} 块，段落范围: ${chunk.paragraphs[0].index} - ${chunk.paragraphs[chunk.paragraphs.length - 1].index}`);
-      
-      const fullPrompt = `${baseSystemPrompt}\n\n文档内容：\n${chunk.text}`;
-      
-      console.log('========== 完整的请求内容（不截断）==========');
-      console.log(fullPrompt);
-      console.log('========== 完整请求内容结束 ==========');
-      
+      const chunk = chunks[i]
+      progress.value = Math.round((i / chunks.length) * 80)
+      progressText.value = `正在分析第 ${i + 1}/${chunks.length} 块...`
+
+      console.log(
+        `处理第 ${i + 1}/${chunks.length} 块，段落范围: ${chunk.paragraphs[0].index} - ${chunk.paragraphs[chunk.paragraphs.length - 1].index}`
+      )
+
+      const fullPrompt = `${baseSystemPrompt}\n\n文档内容：\n${chunk.text}`
+
+      console.log('========== 完整的请求内容（不截断）==========')
+      console.log(fullPrompt)
+      console.log('========== 完整请求内容结束 ==========')
+
       const chatResponse = await axios.post(`/documents/chat/sessions/${sessionId}/send/`, {
         content: fullPrompt
-      });
-      
-      console.log('========== 完整的API响应（不截断）==========');
-      console.log(JSON.stringify(chatResponse.data, null, 2));
-      console.log('========== 完整API响应结束 ==========');
-      
-      const aiContent = chatResponse.data.assistant_message.content;
-      const chunkResults = parseAIResponse(aiContent);
-      analysisResults.value = [...analysisResults.value, ...chunkResults];
+      })
+
+      console.log('========== 完整的API响应（不截断）==========')
+      console.log(JSON.stringify(chatResponse.data, null, 2))
+      console.log('========== 完整API响应结束 ==========')
+
+      const aiContent = chatResponse.data.assistant_message.content
+      const chunkResults = parseAIResponse(aiContent)
+      analysisResults.value = [...analysisResults.value, ...chunkResults]
     }
-    
-    progress.value = 100;
-    progressText.value = '分析完成！';
-    
-    showToast(`分析完成！发现 ${analysisResults.value.length} 个问题`, analysisResults.value.length > 0 ? 'info' : 'success');
-    
+
+    progress.value = 100
+    progressText.value = '分析完成！'
+
+    showToast(
+      `分析完成！发现 ${analysisResults.value.length} 个问题`,
+      analysisResults.value.length > 0 ? 'info' : 'success'
+    )
   } catch (error) {
-    console.error('分析失败:', error);
-    showToast('分析失败: ' + (error.message || '请重试'), 'error');
-    analysisResults.value = [];
+    console.error('分析失败:', error)
+    showToast('分析失败: ' + (error.message || '请重试'), 'error')
+    analysisResults.value = []
   } finally {
-    isLoading.value = false;
-    hasAnalyzed.value = true;
+    isLoading.value = false
+    hasAnalyzed.value = true
   }
-};
+}
 
 const parseAIResponse = (content) => {
   try {
-    let jsonStr = content;
-    
+    let jsonStr = content
+
     // 先尝试找数组
-    const firstBracket = content.indexOf('[');
-    const lastBracket = content.lastIndexOf(']');
-    
+    const firstBracket = content.indexOf('[')
+    const lastBracket = content.lastIndexOf(']')
+
     // 如果没有数组，尝试找单个对象
     if (firstBracket === -1 || lastBracket === -1) {
-      const firstBrace = content.indexOf('{');
-      const lastBrace = content.lastIndexOf('}');
-      
+      const firstBrace = content.indexOf('{')
+      const lastBrace = content.lastIndexOf('}')
+
       if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-        jsonStr = content.substring(firstBrace, lastBrace + 1);
-        const singleResult = JSON.parse(jsonStr);
+        jsonStr = content.substring(firstBrace, lastBrace + 1)
+        const singleResult = JSON.parse(jsonStr)
         // 单个对象包装成数组
-        return [{ ...singleResult, applied: false }];
+        return [{ ...singleResult, applied: false }]
       }
     } else {
-      jsonStr = content.substring(firstBracket, lastBracket + 1);
-      const results = JSON.parse(jsonStr);
+      jsonStr = content.substring(firstBracket, lastBracket + 1)
+      const results = JSON.parse(jsonStr)
       if (Array.isArray(results)) {
-        return results.map(r => ({ ...r, applied: false }));
+        return results.map((r) => ({ ...r, applied: false }))
       }
     }
-    
-    return [];
+
+    return []
   } catch (error) {
-    console.error('解析响应失败:', error);
-    console.error('响应内容:', content);
-    return [];
+    console.error('解析响应失败:', error)
+    console.error('响应内容:', content)
+    return []
   }
-};
+}
 
 const locateText = (result) => {
   try {
     if (!window.Application?.ActiveDocument) {
-      showToast('请先打开一个 WPS 文档', 'warning');
-      return;
+      showToast('请先打开一个 WPS 文档', 'warning')
+      return
     }
 
-    const doc = window.Application.ActiveDocument;
-    const range = doc.Range();
-    range.Find.ClearFormatting();
-    range.Find.Text = result.originalText || result.context;
-    range.Find.Forward = true;
-    range.Find.Wrap = 1;
-    
+    const doc = window.Application.ActiveDocument
+    const range = doc.Range()
+    range.Find.ClearFormatting()
+    range.Find.Text = result.originalText || result.context
+    range.Find.Forward = true
+    range.Find.Wrap = 1
+
     if (range.Find.Execute()) {
-      range.Select();
-      showToast('已定位到问题位置', 'success');
+      range.Select()
+      showToast('已定位到问题位置', 'success')
     } else {
-      showToast('未找到指定文本', 'warning');
+      showToast('未找到指定文本', 'warning')
     }
   } catch (error) {
-    console.error('定位失败:', error);
-    showToast('定位失败', 'error');
+    console.error('定位失败:', error)
+    showToast('定位失败', 'error')
   }
-};
+}
 
 const applyComment = async (result) => {
   try {
     if (!window.Application?.ActiveDocument) {
-      showToast('请先打开一个 WPS 文档', 'warning');
-      return;
+      showToast('请先打开一个 WPS 文档', 'warning')
+      return
     }
 
-    const doc = window.Application.ActiveDocument;
-    const targetRange = doc.Range();
-    targetRange.Find.ClearFormatting();
-    targetRange.Find.Text = result.originalText || result.context;
-    targetRange.Find.Forward = true;
-    targetRange.Find.Wrap = 1;
-    
+    const doc = window.Application.ActiveDocument
+    const targetRange = doc.Range()
+    targetRange.Find.ClearFormatting()
+    targetRange.Find.Text = result.originalText || result.context
+    targetRange.Find.Forward = true
+    targetRange.Find.Wrap = 1
+
     if (targetRange.Find.Execute()) {
-      let commentAdded = false;
-      
+      let commentAdded = false
+
       // 先选择文本（与定位功能一致）
-      targetRange.Select();
-      
+      targetRange.Select()
+
       // 尝试使用选择范围添加批注
       try {
-        const selection = window.Application.Selection;
-        const comment = doc.Comments.Add(selection.Range);
-        comment.Range.Text = `【${getTypeLabel(result.type)}】${result.suggestion}`;
-        commentAdded = true;
+        const selection = window.Application.Selection
+        const comment = doc.Comments.Add(selection.Range)
+        comment.Range.Text = `【${getTypeLabel(result.type)}】${result.suggestion}`
+        commentAdded = true
       } catch (e) {
-        console.log('使用选择范围添加批注失败，尝试直接使用找到的范围:', e);
-        
+        console.log('使用选择范围添加批注失败，尝试直接使用找到的范围:', e)
+
         // 如果选择范围方法失败，尝试直接使用找到的范围
         try {
-          const comment = doc.Comments.Add(targetRange);
-          comment.Range.Text = `【${getTypeLabel(result.type)}】${result.suggestion}`;
-          commentAdded = true;
+          const comment = doc.Comments.Add(targetRange)
+          comment.Range.Text = `【${getTypeLabel(result.type)}】${result.suggestion}`
+          commentAdded = true
         } catch (e2) {
-          console.log('直接使用范围也失败:', e2);
+          console.log('直接使用范围也失败:', e2)
         }
       }
-      
+
       if (commentAdded) {
-        result.applied = true;
-        showToast('批注添加成功！', 'success');
+        result.applied = true
+        showToast('批注添加成功！', 'success')
       } else {
         // 所有方法都失败，使用备用方案：在文档末尾添加批注
-        const endRange = doc.Range(doc.Content.End - 1, doc.Content.End - 1);
-        const comment = doc.Comments.Add(endRange);
-        comment.Range.Text = `【${getTypeLabel(result.type)}】${result.suggestion}\n原文: ${result.originalText}\n段落: 第${result.paragraph}段\n注: 原位置可能在表格中，无法直接添加批注`;
-        result.applied = true;
-        showToast('无法在原位置添加批注，已在文档末尾添加', 'warning');
+        const endRange = doc.Range(doc.Content.End - 1, doc.Content.End - 1)
+        const comment = doc.Comments.Add(endRange)
+        comment.Range.Text = `【${getTypeLabel(result.type)}】${result.suggestion}\n原文: ${result.originalText}\n段落: 第${result.paragraph}段\n注: 原位置可能在表格中，无法直接添加批注`
+        result.applied = true
+        showToast('无法在原位置添加批注，已在文档末尾添加', 'warning')
       }
     } else {
-      const endRange = doc.Range(doc.Content.End - 1, doc.Content.End - 1);
-      const comment = doc.Comments.Add(endRange);
-      comment.Range.Text = `【${getTypeLabel(result.type)}】${result.suggestion}\n原文: ${result.originalText}\n段落: 第${result.paragraph}段`;
-      result.applied = true;
-      showToast('未找到原文位置，已在文档末尾添加批注', 'warning');
+      const endRange = doc.Range(doc.Content.End - 1, doc.Content.End - 1)
+      const comment = doc.Comments.Add(endRange)
+      comment.Range.Text = `【${getTypeLabel(result.type)}】${result.suggestion}\n原文: ${result.originalText}\n段落: 第${result.paragraph}段`
+      result.applied = true
+      showToast('未找到原文位置，已在文档末尾添加批注', 'warning')
     }
   } catch (error) {
-    console.error('添加批注失败:', error);
-    showToast('添加批注失败: ' + (error.message || '请检查WPS是否支持批注功能'), 'error');
+    console.error('添加批注失败:', error)
+    showToast('添加批注失败: ' + (error.message || '请检查WPS是否支持批注功能'), 'error')
   }
-};
+}
 
 const applyAllComments = async () => {
   if (!window.Application?.ActiveDocument) {
-    showToast('请先打开一个 WPS 文档', 'warning');
-    return;
+    showToast('请先打开一个 WPS 文档', 'warning')
+    return
   }
 
-  isApplying.value = true;
-  let successCount = 0;
-  let failCount = 0;
-  
+  isApplying.value = true
+  let successCount = 0
+  let failCount = 0
+
   for (const result of analysisResults.value) {
     if (!result.applied) {
       try {
-        await applyComment(result);
-        successCount++;
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await applyComment(result)
+        successCount++
+        await new Promise((resolve) => setTimeout(resolve, 100))
       } catch (e) {
-        failCount++;
+        failCount++
       }
     }
   }
-  
-  isApplying.value = false;
-  showToast(`批量添加完成！成功: ${successCount}, 失败: ${failCount}`, failCount === 0 ? 'success' : 'warning');
-};
+
+  isApplying.value = false
+  showToast(
+    `批量添加完成！成功: ${successCount}, 失败: ${failCount}`,
+    failCount === 0 ? 'success' : 'warning'
+  )
+}
 
 const getTypeLabel = (type) => {
   const labels = {
@@ -534,9 +530,9 @@ const getTypeLabel = (type) => {
     grammar: '语法问题',
     format: '格式建议',
     content: '内容优化'
-  };
-  return labels[type] || type;
-};
+  }
+  return labels[type] || type
+}
 </script>
 
 <style scoped>
@@ -592,10 +588,18 @@ const getTypeLabel = (type) => {
   font-weight: bold;
 }
 
-.toast.success .toast-icon { color: #4caf50; }
-.toast.error .toast-icon { color: #f44336; }
-.toast.warning .toast-icon { color: #ff9800; }
-.toast.info .toast-icon { color: #2196f3; }
+.toast.success .toast-icon {
+  color: #4caf50;
+}
+.toast.error .toast-icon {
+  color: #f44336;
+}
+.toast.warning .toast-icon {
+  color: #ff9800;
+}
+.toast.info .toast-icon {
+  color: #2196f3;
+}
 
 .toast-message {
   flex: 1;
@@ -680,7 +684,7 @@ const getTypeLabel = (type) => {
   user-select: none;
 }
 
-.option-item input[type="checkbox"] {
+.option-item input[type='checkbox'] {
   width: 18px;
   height: 18px;
   cursor: pointer;
@@ -721,7 +725,9 @@ const getTypeLabel = (type) => {
   font-size: 15px;
   font-weight: 500;
   cursor: pointer;
-  transition: transform 0.2s, opacity 0.2s;
+  transition:
+    transform 0.2s,
+    opacity 0.2s;
 }
 
 .analyze-btn:hover:not(:disabled) {

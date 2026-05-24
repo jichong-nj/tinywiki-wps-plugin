@@ -8,14 +8,14 @@ export class DocumentOperationParser {
    * @returns {Array} 操作数组
    */
   static extractOperations(markdown) {
-    const regex = /```document-operations\s*\n([\s\S]*?)\n```/g;
-    const operations = [];
-    let match;
-    
+    const regex = /```document-operations\s*\n([\s\S]*?)\n```/g
+    const operations = []
+    let match
+
     while ((match = regex.exec(markdown)) !== null) {
       try {
-        const jsonStr = match[1];
-        const parsed = JSON.parse(jsonStr);
+        const jsonStr = match[1]
+        const parsed = JSON.parse(jsonStr)
         if (Array.isArray(parsed)) {
           parsed.forEach((op, index) => {
             operations.push({
@@ -23,23 +23,23 @@ export class DocumentOperationParser {
               id: `op-${Date.now()}-${index}`,
               confirmed: true,
               status: 'pending'
-            });
-          });
+            })
+          })
         }
       } catch (e) {
-        console.error('解析操作指令失败:', e);
+        console.error('解析操作指令失败:', e)
       }
     }
-    
-    return operations;
+
+    return operations
   }
-  
+
   /**
    * 从 Markdown 中移除操作代码块，保留纯文本
    * @param {string} markdown - Markdown 文本
    * @returns {string} 纯文本
    */
   static stripOperations(markdown) {
-    return markdown.replace(/```document-operations\s*\n[\s\S]*?\n```/g, '');
+    return markdown.replace(/```document-operations\s*\n[\s\S]*?\n```/g, '')
   }
 }

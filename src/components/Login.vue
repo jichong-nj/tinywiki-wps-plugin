@@ -7,7 +7,7 @@
           <h1>AI 助手</h1>
           <p>请登录以继续使用</p>
         </div>
-        
+
         <form @submit.prevent="handleLogin" class="login-form">
           <div class="form-group">
             <label for="username">用户名</label>
@@ -20,7 +20,7 @@
               autocomplete="username"
             />
           </div>
-          
+
           <div class="form-group">
             <label for="password">密码</label>
             <input
@@ -32,18 +32,18 @@
               autocomplete="current-password"
             />
           </div>
-          
+
           <div class="remember-row">
             <label class="remember-checkbox">
               <input type="checkbox" v-model="rememberMe" />
               <span>记住密码</span>
             </label>
           </div>
-          
+
           <div class="error-message" v-if="error">
             {{ error }}
           </div>
-          
+
           <button type="submit" class="login-button" :disabled="loading">
             <span v-if="loading" class="loading-spinner"></span>
             {{ loading ? '登录中...' : '登录' }}
@@ -55,8 +55,8 @@
 </template>
 
 <script>
-import axios from '../axios';
-import { ref, reactive, onMounted } from 'vue';
+import axios from '../axios'
+import { ref, reactive, onMounted } from 'vue'
 
 export default {
   name: 'LoginPage',
@@ -64,77 +64,76 @@ export default {
     const form = reactive({
       username: '',
       password: ''
-    });
-    const loading = ref(false);
-    const error = ref('');
-    const rememberMe = ref(false);
+    })
+    const loading = ref(false)
+    const error = ref('')
+    const rememberMe = ref(false)
 
     onMounted(() => {
-      const savedUsername = localStorage.getItem('savedUsername');
-      const savedPassword = localStorage.getItem('savedPassword');
-      const remember = localStorage.getItem('rememberMe');
-      
+      const savedUsername = localStorage.getItem('savedUsername')
+      const savedPassword = localStorage.getItem('savedPassword')
+      const remember = localStorage.getItem('rememberMe')
+
       if (remember === 'true' && savedUsername) {
-        form.username = savedUsername;
-        form.password = savedPassword || '';
-        rememberMe.value = true;
+        form.username = savedUsername
+        form.password = savedPassword || ''
+        rememberMe.value = true
       }
-    });
+    })
 
     const handleLogin = async () => {
       if (!form.username || !form.password) {
-        error.value = '请输入用户名和密码';
-        return;
+        error.value = '请输入用户名和密码'
+        return
       }
 
-      loading.value = true;
-      error.value = '';
+      loading.value = true
+      error.value = ''
 
       try {
-        console.log('正在登录...', form.username);
-        
+        console.log('正在登录...', form.username)
+
         const response = await axios.post('/auth/login/', {
           username: form.username,
           password: form.password
-        });
+        })
 
-        console.log('登录响应:', response);
+        console.log('登录响应:', response)
 
-        const { access, refresh } = response.data;
-        
-        localStorage.setItem('accessToken', access);
-        localStorage.setItem('refreshToken', refresh);
-        localStorage.setItem('currentUsername', form.username);
-        
-        axios.defaults.headers.common['Authorization'] = `Bearer ${access}`;
-        
+        const { access, refresh } = response.data
+
+        localStorage.setItem('accessToken', access)
+        localStorage.setItem('refreshToken', refresh)
+        localStorage.setItem('currentUsername', form.username)
+
+        axios.defaults.headers.common['Authorization'] = `Bearer ${access}`
+
         if (rememberMe.value) {
-          localStorage.setItem('savedUsername', form.username);
-          localStorage.setItem('savedPassword', form.password);
-          localStorage.setItem('rememberMe', 'true');
+          localStorage.setItem('savedUsername', form.username)
+          localStorage.setItem('savedPassword', form.password)
+          localStorage.setItem('rememberMe', 'true')
         } else {
-          localStorage.removeItem('savedUsername');
-          localStorage.removeItem('savedPassword');
-          localStorage.setItem('rememberMe', 'false');
+          localStorage.removeItem('savedUsername')
+          localStorage.removeItem('savedPassword')
+          localStorage.setItem('rememberMe', 'false')
         }
-        
-        console.log('登录成功，token 已保存');
-        
-        window.location.hash = '#/aichat';
-        
+
+        console.log('登录成功，token 已保存')
+
+        window.location.hash = '#/aichat'
       } catch (err) {
-        console.error('登录失败:', err);
+        console.error('登录失败:', err)
         if (err.response?.status === 401) {
-          error.value = '用户名或密码错误';
+          error.value = '用户名或密码错误'
         } else if (err.response?.data?.detail) {
-          error.value = err.response.data.detail;
+          error.value = err.response.data.detail
         } else {
-          error.value = '登录失败，请检查网络连接';
+          error.value = '登录失败，请检查网络连接'
         }
       } finally {
-        loading.value = false;
+        loading.value = false
       }
-    };
+    }
 
     return {
       form,
@@ -142,9 +141,9 @@ export default {
       error,
       rememberMe,
       handleLogin
-    };
+    }
   }
-};
+}
 </script>
 
 <style scoped>
@@ -219,7 +218,9 @@ export default {
   border-radius: 10px;
   font-size: 15px;
   outline: none;
-  transition: border-color 0.3s, box-shadow 0.3s;
+  transition:
+    border-color 0.3s,
+    box-shadow 0.3s;
 }
 
 .form-group input:focus {
@@ -251,7 +252,7 @@ export default {
   color: #666;
 }
 
-.remember-checkbox input[type="checkbox"] {
+.remember-checkbox input[type='checkbox'] {
   width: 18px;
   height: 18px;
   cursor: pointer;
@@ -267,7 +268,9 @@ export default {
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
   display: flex;
   justify-content: center;
   align-items: center;
