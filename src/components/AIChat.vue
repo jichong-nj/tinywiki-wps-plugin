@@ -487,9 +487,7 @@ const sendMessage = async () => {
     if (chatMode.value === 'builtin') {
       await sendBuiltinMessage(fullUserContent, tempUserMsg)
     } else {
-      messages.value.push(tempUserMsg)
-      await scrollToBottom()
-      await sendOpenClawMessage(fullUserContent, tempUserMsg.id)
+      await sendOpenClawMessage(fullUserContent, tempUserMsg)
     }
 
     await scrollToBottom()
@@ -602,42 +600,123 @@ const sendBuiltinMessage = async (userContent, tempUserMsg) => {
 }
 
 const sendOpenClawMessage = async (userContent, tempMsgId) => {
-  const formData = new FormData()
-  formData.append('agent_id', selectedAgentId.value)
-  formData.append('query', userContent)
-  if (selectedKBId.value) {
-    formData.append('knowledge_base_id', selectedKBId.value)
+  // 清除用户消息占位
+  messages.value = messages.value.filter((m) => m.id !== tempMsgId)
+
+  // 添加用户消息
+  const userMsg = {
+    id: Date.now() - 1,
+    role: 'user',
+    content: userContent,
+    originalUserContent: tempUserMsg.originalUserContent,
+    hasDocumentContent: tempUserMsg.hasDocumentContent,
+    isDocumentSelection: tempUserMsg.isDocumentSelection,
+    created_at: new Date().toISOString()
   }
-  openclawAttachments.value.forEach((file) => {
-    formData.append('attachments', file)
-  })
+  messages.value.push(userMsg)
 
-  const response = await axios.post('/openclaw/chat/', formData)
+  // 创建助手消息占位（用于流式更新）
+  const tempAssistantMsgId = Date.now()
+  const tempAssistantMsg = {
+    id: tempAssistantMsgId,
+    role: 'assistant',
+    content: '',
+    created_at: new Date().toISOString()
+  }
+  messages.value.push(tempAssistantMsg)
 
+  // 清除附件
   openclawAttachments.value = []
   if (attachmentInputRef.value) {
     attachmentInputRef.value.value = ''
   }
 
-  messages.value = messages.value.filter((m) => m.id !== tempMsgId)
+  try {
+    // 准备请求数据
+    const requestData = {
+      agent_id: String(selectedAgentId.value),
+      query: userContent
+    }
 
-  messages.value.push({
-    id: Date.now() - 1,
-    role: 'user',
-    content: userContent,
-    created_at: new Date().toISOString()
-  })
+    if (selectedKBId.value && selectedKBId.value !== '') {
+      requestData.knowledge_base_id = String(selectedKBId.value)
+    }
 
-  const assistantMsg = {
-    id: Date.now(),
-    role: 'assistant',
-    content: response.data.data?.response || response.data.data || '未获取到响应',
-    created_at: new Date().toISOString()
+    console.log('[OpenClaw Stream] 发送请求到 /api/openclaw/chat/stream/')
+    console.log('[OpenClaw Stream] 请求数据:', requestData)
+
+    // 使用 fetch 发送流式请求
+    const response = await fetch('/api/openclaw/chat/stream/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${localStorage.getItem('accessToken') || ''}`
+      },
+      body: JSON.stringify(requestData)
+    })
+
+    console.log('[OpenClaw Stream] 响应状态:', response.status)
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('[OpenClaw Stream] 请求失败:', response.status, errorText)
+      throw new Error(`请求失败: ${response.status}`)
+    }
+
+    const reader = response.body?.getReader()
+    const decoder = new TextDecoder()
+    let fullContent = ''
+
+    console.log('[OpenClaw Stream] 开始读取流')
+
+    if (reader) {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        const chunk = decoder.decode(value)
+        console.log('[OpenClaw Stream] 收到数据块:', chunk.substring(0, 200))
+
+        const lines = chunk.split('\n')
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const dataStr = line.slice(6)
+            try {
+              const data = JSON.parse(dataStr)
+              console.log('[OpenClaw Stream] 解析数据:', data)
+
+              if (data.error) {
+                console.error('[OpenClaw Stream] 错误:', data.error)
+                tempAssistantMsg.content = '错误: ' + data.error
+                messages.value = [...messages.value]
+                break
+              }
+              if (data.content) {
+                fullContent += data.content
+                tempAssistantMsg.content = fullContent
+                messages.value = [...messages.value]
+                await scrollToBottom()
+              }
+              if (data.done) {
+                console.log('[OpenClaw Stream] 流式响应完成')
+                // 解析完成后的消息中的操作
+                parseMessageOperations(tempAssistantMsg)
+              }
+            } catch (e) {
+              console.error('[OpenClaw Stream] JSON 解析错误:', e, '原始数据:', dataStr)
+            }
+          }
+        }
+      }
+    }
+
+    console.log('[OpenClaw Stream] 响应接收完毕，最终内容长度:', fullContent.length)
+  } catch (error) {
+    console.error('[OpenClaw Stream] 发送消息失败:', error)
+    tempAssistantMsg.content = '发送消息失败，请重试'
+    messages.value = [...messages.value]
   }
-  messages.value.push(assistantMsg)
-
-  // 解析消息中的操作
-  parseMessageOperations(assistantMsg)
 }
 
 const handleAttachmentChange = (event) => {
