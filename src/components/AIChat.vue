@@ -361,16 +361,20 @@ const loadKnowledgeBases = async () => {
 }
 
 const loadAgents = async () => {
+  console.log('[loadAgents] 开始加载 agents...')
   try {
     const response = await axios.get('/openclaw/agents/')
+    console.log('[loadAgents] 响应数据:', response.data)
     if (response.data.success) {
       agents.value = response.data.data || []
+      console.log('[loadAgents] 加载到 agents:', agents.value)
       if (agents.value.length > 0) {
         selectedAgentId.value = agents.value[0].id
+        console.log('[loadAgents] 设置 selectedAgentId 为:', selectedAgentId.value)
       }
     }
   } catch (error) {
-    console.error('Failed to load agents:', error)
+    console.error('[loadAgents] 加载失败:', error)
   }
 }
 
@@ -484,9 +488,12 @@ const sendMessage = async () => {
   }
 
   try {
+    console.log('[sendMessage] 准备发送消息, chatMode:', chatMode.value)
     if (chatMode.value === 'builtin') {
+      console.log('[sendMessage] 进入 builtin 模式')
       await sendBuiltinMessage(fullUserContent, tempUserMsg)
     } else {
+      console.log('[sendMessage] 进入 openclaw 模式')
       await sendOpenClawMessage(fullUserContent, tempUserMsg)
     }
 
@@ -599,9 +606,16 @@ const sendBuiltinMessage = async (userContent, tempUserMsg) => {
   }
 }
 
-const sendOpenClawMessage = async (userContent, tempMsgId) => {
+const sendOpenClawMessage = async (userContent, tempUserMsg) => {
+  console.log('[sendOpenClawMessage] 开始执行, 参数:')
+  console.log('[sendOpenClawMessage] userContent:', userContent)
+  console.log('[sendOpenClawMessage] tempUserMsg:', tempUserMsg)
+  console.log('[sendOpenClawMessage] selectedAgentId:', selectedAgentId.value)
+  console.log('[sendOpenClawMessage] selectedKBId:', selectedKBId.value)
+  console.log('[sendOpenClawMessage] chatMode:', chatMode.value)
+
   // 清除用户消息占位
-  messages.value = messages.value.filter((m) => m.id !== tempMsgId)
+  messages.value = messages.value.filter((m) => m.id !== tempUserMsg.id)
 
   // 添加用户消息
   const userMsg = {
@@ -632,6 +646,14 @@ const sendOpenClawMessage = async (userContent, tempMsgId) => {
   }
 
   try {
+    console.log('[sendOpenClawMessage] 准备发送请求...')
+
+    // 安全检查
+    if (!selectedAgentId.value) {
+      console.error('[sendOpenClawMessage] 错误: selectedAgentId 为 null 或 undefined')
+      throw new Error('请先选择一个 Agent')
+    }
+
     // 准备请求数据
     const requestData = {
       agent_id: String(selectedAgentId.value),
